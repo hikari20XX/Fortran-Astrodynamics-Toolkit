@@ -1,48 +1,37 @@
 module time_module
-
     use kind_module
-
     implicit none
-
     private
 
-    ! parameters
-    real(wp), parameter, public :: jd_j2000 = 2451545.0_wp  !! julian date of J2000 epoch
+    real(wp), parameter, public :: jd_j2000 = 2451545.0_wp
 
     interface julian_date
-        module procedure :: julian_date_realsec, julian_date_intsec
-    end interface
-
-    interface julian_date_to_calendar_date
-        module procedure :: calendar_date_realsec
+        module procedure julian_date_realsec
     end interface
 
     public :: julian_day
-    public :: julian_date
-    public :: julian_date_intsec
+    public :: julian_date_realsec
     public :: et_to_jd
     public :: jd_to_et
     public :: jd_to_mjd
     public :: mjd_to_jd
     public :: julian_date_to_calendar_date
 
-    public :: time_module_test
-
 contains
 
     pure function et_to_jd(et) result(jd)
         use conversion_module, only: sec2day
         implicit none
-        real(wp),intent(in) :: et
+        real(wp), intent(in) :: et
         real(wp) :: jd
 
-        jd = jd_j2000 + et*sec2day
+        jd = jd_j2000 + et * sec2day
     end function et_to_jd
 
     pure function jd_to_et(jd) result(et)
         use conversion_module, only: day2sec
         implicit none
-        real(wp),intent(in) :: jd
+        real(wp), intent(in) :: jd
         real(wp) :: et
 
         et = (jd - jd_j2000)*day2sec
@@ -50,58 +39,45 @@ contains
 
     pure function jd_to_mjd(jd) result(mjd)
         implicit none
-        real(wp),intent(in) :: jd
+        real(wp), intent(in) :: jd
         real(wp) :: mjd
-
         mjd = jd - 2400000.5_wp
     end function jd_to_mjd
 
     pure function mjd_to_jd(mjd) result(jd)
         implicit none
-        real(wp),intent(in) :: mjd
+        real(wp), intent(in) :: mjd
         real(wp) :: jd
-
         jd = mjd + 2400000.5_wp
     end function mjd_to_jd
 
     pure integer function julian_day(y,m,d)
         implicit none
-        integer,intent(in) :: y,m,d
-
-        julian_day = d-32075+1461*(y+4800+(m-14)/12)/4+367*(m-2-(m-14)/12*12)/12 - &
-                     3*((y+4900+(m-14)/12)/100)/4
+        integer,intent(in):: y,m,d
+        julian_day = d-32075+1461*(y+4800+(m-14)/12)/4+367*(m-2-(m-14)/12*12)/12 - 3*((y+4900+(m-14)/12)/100)/4
     end function julian_day
-
-    pure function julian_date_intsec(y,m,d,hour,minute,second) result(julian_date)
-        implicit none
-        integer,intent(in) :: y,m,d,hour,minute,second
-        real(wp) :: julian_date
-
-        julian_date = julian_date_realsec(y,m,d,hour,minute,real(second,wp))
-    end function julian_date_intsec
 
     pure function julian_date_realsec(y,m,d,hour,minute,second) result(julian_date)
         implicit none
-        integer,intent(in) :: y,m,d,hour,minute
-        real(wp),intent(in) :: second
-        real(wp) :: julian_date
-        integer :: julian_day_number
+        integer,intent(in):: y,m,d,hour,minute
+        real(wp),intent(in):: second
+        real(wp):: julian_date
+        integer :: jdn
 
-        julian_day_number = julian_day(y,m,d)
-        julian_date = real(julian_day_number,wp) + (hour-12.0_wp)/24.0_wp + minute/1440.0_wp + second/86400.0_wp
+        jdn = julian_day(y,m,d)
+        julian_date = real(jdn,wp) + (hour-12.0_wp)/24.0_wp + minute/1440.0_wp + second/86400.0_wp
     end function julian_date_realsec
 
-    pure subroutine calendar_date_realsec(julian_date,year,month,day,hrs,min,sec)
+    pure subroutine julian_date_to_calendar_date(jd,year,month,day,hrs,min,sec)
         implicit none
-        real(wp),intent(in) :: julian_date
-        integer,intent(out) :: year,month,day,hrs,min
-        real(wp),intent(out) :: sec
+        real(wp),intent(in):: jd
+        integer,intent(out):: year,month,day,hrs,min
+        real(wp),intent(out):: sec
 
-        integer :: i,j,k,l,n,jd
-        real(wp) :: frac_day
-
-        jd = int(julian_date)
-        l = jd+68569
+        integer :: i,j,k,l,n,jdi
+        real(wp):: frac_day
+        jdi = int(jd)
+        l = jdi+68569
         n = 4*l/146097
         l = l-(146097*n+3)/4
         i = 4000*(l+1)/1461001
@@ -112,57 +88,24 @@ contains
         j = j+2-12*l
         i = 100*(n-49)+i+l
 
-        year  = i
-        month = j
-        day   = k
+        year=i
+        month=j
+        day=k
 
-        frac_day = julian_date - real(jd,wp) + 0.5_wp
+        frac_day = jd - real(jdi,wp) + 0.5_wp
+        hrs=int(frac_day*24.0_wp)
+        min=int((frac_day - hrs/24.0_wp)*1440.0_wp)
+        sec=(frac_day - hrs/24.0_wp - min/1440.0_wp)*86400.0_wp
 
-        hrs = int(frac_day*24.0_wp)
-        min = int((frac_day - hrs/24.0_wp)*1440.0_wp)
-        sec = (frac_day - hrs/24.0_wp - min/1440.0_wp)*86400.0_wp
-
-        if (sec == 60.0_wp) then
-            sec = 0.0_wp
-            min = min + 1
+        if (sec==60.0_wp) then
+           sec=0.0_wp
+           min=min+1
         end if
 
-        if (min == 60) then
-            min = 0
-            hrs = hrs + 1
+        if (min==60) then
+           min=0
+           hrs=hrs+1
         end if
-    end subroutine calendar_date_realsec
-
-    subroutine time_module_test()
-        implicit none
-        real(wp) :: jd, sec
-        integer :: year,month,day,hrs,min
-
-        write(*,*) ''
-        write(*,*) '---------------'
-        write(*,*) ' time_module_test'
-        write(*,*) '---------------'
-        write(*,*) ''
-
-        jd = julian_date_intsec(2000,1,1,12,0,0)
-        call calendar_date_realsec(jd,year,month,day,hrs,min,sec)
-
-        write(*,*) 'jd    ', jd
-        write(*,*) 'year  ', year
-        write(*,*) 'month ', month
-        write(*,*) 'day   ', day
-        write(*,*) 'hrs   ', hrs
-        write(*,*) 'min   ', min
-        write(*,*) 'sec   ', sec
-
-        if (year/=2000)  error stop 'error: incorrect year'
-        if (month/=1)    error stop 'error: incorrect month'
-        if (day/=1)      error stop 'error: incorrect day'
-        if (hrs/=12)     error stop 'error: incorrect hrs'
-        if (min/=0)      error stop 'error: incorrect min'
-        if (sec/=0.0_wp) error stop 'error: incorrect sec'
-
-        write(*,*) 'PASSED'
-    end subroutine time_module_test
+    end subroutine julian_date_to_calendar_date
 
 end module time_module
